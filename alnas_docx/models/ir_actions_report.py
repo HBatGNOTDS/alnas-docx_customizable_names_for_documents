@@ -1,4 +1,5 @@
 import base64
+import logging
 import zipfile
 import os
 import subprocess
@@ -15,6 +16,8 @@ from odoo.tools.safe_eval import safe_eval, time
 from odoo.exceptions import ValidationError, MissingError, UserError
 
 from ..tools import misc as misc_tools
+
+_logger = logging.getLogger(__name__)
 
 
 class IrActionsReport(models.Model):
@@ -78,11 +81,11 @@ class IrActionsReport(models.Model):
         doc_obj = self.env[report.model].browse(docids)
         context = self._get_rendering_context_docx(doc_template=doc_template)
         autoescape = report.docx_autoescape
-        
+
         if report.docx_merge_mode == "composer":
-            return self._render_composer_mode(doc_template, doc_obj, data, context, autoescape=autoescape)
+            content, filetype = self._render_composer_mode(doc_template, doc_obj, data, context, autoescape=autoescape)
         elif report.docx_merge_mode == "zip":
-            return self._render_zip_mode(
+            content, filetype = self._render_zip_mode(
                 doc_template,
                 doc_obj,
                 data,
@@ -91,7 +94,39 @@ class IrActionsReport(models.Model):
                 autoescape=autoescape,
             )
         else:
-            return self._render_docx_to_pdf_mode(doc_template, doc_obj, data, context, autoescape=autoescape)
+            content, filetype = self._render_docx_to_pdf_mode(doc_template, doc_obj, data, context, autoescape=autoescape)
+
+        self._save_docx_attachment(report, doc_obj, content)
+        return content, filetype
+
+    def _save_docx_attachment(self, report, doc_obj, content):
+        """Speichert den erzeugten Bericht als Anhang an den gedruckten
+        Datensätzen (erscheint dann im Chatter) - genau dasselbe Feld
+        "Save as Attachment Prefix", das PDF-Berichte in Odoo dafür schon
+        nutzen. Ohne eingetragenen Dateinamen passiert nichts, wie beim
+        PDF-Weg auch. Ein Fehler dabei darf das Drucken nicht verhindern."""
+        if not report.attachment:
+            return
+        attachment_vals_list = []
+        for record in doc_obj:
+            if report.attachment_use and report.retrieve_attachment(record):
+                continue
+            name = safe_eval(report.attachment, {"object": record, "time": time})
+            if not name:
+                continue
+            attachment_vals_list.append({
+                "name": name,
+                "raw": content,
+                "res_model": report.model,
+                "res_id": record.id,
+                "type": "binary",
+            })
+        if not attachment_vals_list:
+            return
+        try:
+            self.env["ir.attachment"].create(attachment_vals_list)
+        except Exception:
+            _logger.exception("DOCX-Anhang konnte nicht gespeichert werden.")
 
     def _render_composer_mode(self, doc_template, doc_obj, data, context, autoescape=False):
         for idx, obj in enumerate(doc_obj):
