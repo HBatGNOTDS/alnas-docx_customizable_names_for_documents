@@ -81,13 +81,13 @@ def parse_html(html):
     soup = BeautifulSoup(html, "html.parser")
     return soup.get_text()
 
-def formatdate(date_required=datetime.today(), format="full", lang="id_ID", **kwargs):
+def formatdate(date_required=datetime.today(), format="full", lang="de_DE", **kwargs):
     return format_date(date_required, format=format, locale=lang, **kwargs)
 
-def spelled_out(number, lang="id_ID", to="cardinal", **kwargs):
+def spelled_out(number, lang="de_DE", to="cardinal", **kwargs):
     return num2words(number, lang=lang, to=to, **kwargs)
 
-def convert_currency(number, currency_field, locale='id_ID', **kwargs):
+def convert_currency(number, currency_field, locale='de_DE', **kwargs):
     return format_currency(number, currency_field.name, locale=locale, **kwargs)
 
 def format_abs(number):
