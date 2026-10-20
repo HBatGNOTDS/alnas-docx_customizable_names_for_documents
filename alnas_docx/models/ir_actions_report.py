@@ -16,6 +16,7 @@ from odoo.tools.safe_eval import safe_eval, time
 from odoo.exceptions import ValidationError, MissingError, UserError
 
 from ..tools import misc as misc_tools
+from ..tools.formatted_date import datum as formatted_datum
 
 _logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ class IrActionsReport(models.Model):
             "spelled_out": misc_tools.spelled_out,
             "parsehtml": misc_tools.parse_html,
             "formatdate": misc_tools.formatdate,
+            "datum": formatted_datum,
             "convert_currency": misc_tools.convert_currency,
             "formatabs": misc_tools.format_abs,
             "rich_text": misc_tools.rich_text,
