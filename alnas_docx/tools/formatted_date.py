@@ -8,7 +8,7 @@ FORMAT_KURZ = "dd.MM.yyyy"
 FORMAT_LANG_MIT_ZEIT = "d. MMMM yyyy, HH:mm 'Uhr'"
 FORMAT_KURZ_MIT_ZEIT = "dd.MM.yyyy, HH:mm 'Uhr'"
 FORMAT_KURZ_MIT_ZEIT_OHNE_KOMMA = "dd.MM.yyyy HH:mm 'Uhr'"
-FORMAT_LANG_MIT_UM = "d. MMMM yyyy 'um' HH:mm 'Uhr'"
+FORMAT_LANG_MIT_ZEIT_UM = "d. MMMM yyyy 'um' HH:mm 'Uhr'"
 FORMAT_NUR_UHRZEIT = "HH:mm 'Uhr'"
 FORMAT_JAHR = "yyyy"
 FORMAT_MONAT = "MMMM"
@@ -50,9 +50,9 @@ def _parse_text(text):
 
 
 class _DateComponentsMixin:
-    """Einzelne Datumsbestandteile, gemeinsam für FormattedDate und
-    FormattedDateTime - betrifft nur den Datumsanteil, unabhängig von einer
-    eventuell vorhandenen Uhrzeit."""
+    """Eigenschaften, die sich für FormattedDate und FormattedDateTime
+    identisch verhalten - betreffen nur den Datumsanteil (nie die Uhrzeit)
+    und sind deshalb für beide Feldtypen gleich richtig."""
 
     @property
     def jahr(self):
@@ -93,10 +93,16 @@ class _DateComponentsMixin:
 
 class FormattedDate(_DateComponentsMixin, date):
     """Verhält sich wie ein normales date-Objekt (Vergleiche, Rechenoperationen,
-    Übergabe an formatdate() funktionieren unverändert), bietet zusätzlich
-    .kurz für dd.MM.yyyy sowie die Einzelbestandteile aus
-    _DateComponentsMixin (.jahr, .monat, .monat_jahr, .tag_monat_kurz,
-    .tag_monat, .quartal, ...)."""
+    Übergabe an formatdate() funktionieren unverändert). Standard ist immer
+    reines Datum, ohne Uhrzeit - bei einem echten Datum-Feld gibt es ja auch
+    keine.
+
+    Die '..._mit_zeit'-Eigenschaften existieren hier als Rückfall-Varianten:
+    falls jemand aus Versehen eine Zeit-Eigenschaft auf einem reinen
+    Datumsfeld aufruft (weil nicht immer auf den ersten Blick klar ist, ob
+    ein Feld eine Uhrzeit hat), kommt die datumslose Fassung zurück statt
+    eines Fehlers oder eines falschen 'False' im Fließtext. Nur .uhrzeit hat
+    dafür keine sinnvolle Entsprechung und liefert einen leeren Text."""
 
     def __str__(self):
         return format_date(self, format=FORMAT_LANG, locale=LANG)
@@ -104,36 +110,67 @@ class FormattedDate(_DateComponentsMixin, date):
     @property
     def kurz(self):
         return format_date(self, format=FORMAT_KURZ, locale=LANG)
+
+    @property
+    def kurz_mit_zeit(self):
+        return self.kurz
+
+    @property
+    def lang_mit_zeit(self):
+        return str(self)
+
+    @property
+    def kurz_mit_zeit_ohne_komma(self):
+        return self.kurz
+
+    @property
+    def lang_mit_zeit_um(self):
+        return str(self)
+
+    @property
+    def uhrzeit(self):
+        return ""
+
+    @property
+    def wochentag_datum_mit_zeit(self):
+        return self.wochentag_datum
+
+    @property
+    def wochentag_datum_mit_den_mit_zeit(self):
+        return self.wochentag_datum_mit_den
+
+    @property
+    def wochentag_datum_mit_den_um(self):
+        return self.wochentag_datum_mit_den
 
 
 class FormattedDateTime(_DateComponentsMixin, datetime):
-    """Wie FormattedDate, für Werte mit Uhrzeit. Bietet zusätzlich
-    verschiedene Kurzformen an, je nach Einsatzort (Tabelle, Fließtext,
-    nur Uhrzeit), sowie dieselben Einzelbestandteile aus
-    _DateComponentsMixin."""
+    """Wie FormattedDate, für Werte mit echter Uhrzeit. Standard ist
+    ebenfalls reines Datum (einheitlich mit FormattedDate) - die Uhrzeit
+    kommt nur über eine der '..._mit_zeit'-Eigenschaften dazu."""
 
     def __str__(self):
-        return format_datetime(self, format=FORMAT_LANG_MIT_ZEIT, locale=LANG)
-
-    @property
-    def kurz(self):
-        return format_datetime(self, format=FORMAT_KURZ_MIT_ZEIT, locale=LANG)
-
-    @property
-    def kurz_ohne_zeit(self):
-        return format_date(self, format=FORMAT_KURZ, locale=LANG)
-
-    @property
-    def lang_ohne_zeit(self):
         return format_date(self, format=FORMAT_LANG, locale=LANG)
 
     @property
-    def kurz_ohne_komma(self):
+    def kurz(self):
+        return format_date(self, format=FORMAT_KURZ, locale=LANG)
+
+    @property
+    def kurz_mit_zeit(self):
+        return format_datetime(self, format=FORMAT_KURZ_MIT_ZEIT, locale=LANG)
+
+    @property
+    def lang_mit_zeit(self):
+        return format_datetime(self, format=FORMAT_LANG_MIT_ZEIT, locale=LANG)
+
+    @property
+    def kurz_mit_zeit_ohne_komma(self):
         return format_datetime(self, format=FORMAT_KURZ_MIT_ZEIT_OHNE_KOMMA, locale=LANG)
 
     @property
-    def lang_mit_um(self):
-        return format_datetime(self, format=FORMAT_LANG_MIT_UM, locale=LANG)
+    def lang_mit_zeit_um(self):
+        return format_datetime(self, format=FORMAT_LANG_MIT_ZEIT_UM, locale=LANG)
 
     @property
     def uhrzeit(self):
@@ -156,6 +193,8 @@ def datum(value):
     """Verpackt einen Datums-/Datum+Uhrzeit-Wert in FormattedDate/
     FormattedDateTime, damit in der Word-Vorlage zusätzliche Eigenschaften
     wie .kurz, .monat_jahr, .wochentag_datum usw. zur Verfügung stehen.
+    Standard (ohne Attribut) ist immer reines Datum, Uhrzeit nur über ein
+    '..._mit_zeit'-Attribut.
 
     Akzeptiert: ein echtes date-Objekt, ein echtes datetime-Objekt, oder
     rohen Text (für Felder, die Datum/Zeit nur als Text speichern - wird
